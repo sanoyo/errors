@@ -2,16 +2,42 @@ package errors
 
 import "runtime"
 
-func New(message string) error {
-	return &base{
-		message: message,
-		stack:   callers(),
-	}
-}
-
 type base struct {
 	message string
 	*stack
+}
+
+func New(message string) error {
+	return &base{
+		message: message,
+		stack:   callers(3),
+	}
+}
+
+func Errorf(err error, message string) error {
+	return &base{
+		message: message + ": " + err.Error(),
+		stack:   callers(3),
+	}
+}
+
+type withStack struct {
+	error
+	*stack
+}
+
+func WithStack(err error) *withStack {
+	if err == nil {
+		return nil
+	}
+	return &withStack{
+		err,
+		callers(3),
+	}
+}
+
+func (w *withStack) Cause(e error) error {
+	return w.error
 }
 
 func (b *base) Error() string {
@@ -20,10 +46,10 @@ func (b *base) Error() string {
 
 type stack []uintptr
 
-func callers() *stack {
+func callers(skip int) *stack {
 	const depth = 16
 	var pcs [depth]uintptr
-	n := runtime.Callers(3, pcs[:])
+	n := runtime.Callers(skip, pcs[:])
 	var st stack = pcs[0:n]
 	return &st
 }
